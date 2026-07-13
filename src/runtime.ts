@@ -60,7 +60,15 @@ function run(command: string, args: string[], timeoutMs: number): Promise<string
 }
 
 async function findSystemPython(): Promise<string> {
-  const candidates = [process.env.PYTHON, "python3", "python"].filter((value): value is string => Boolean(value));
+  const candidates = [
+    process.env.PYTHON,
+    "python3.11",
+    "python3.12",
+    "python3.13",
+    "python3.14",
+    "python3",
+    "python",
+  ].filter((value): value is string => Boolean(value));
   for (const candidate of candidates) {
     try {
       await run(candidate, ["-c", "import sys; raise SystemExit(sys.version_info < (3, 11))"], 10000);
