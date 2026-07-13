@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "pi-llm-bridge": ["./src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "extension.ts", "examples/**/*.ts", "test/**/*.ts"]
+}
