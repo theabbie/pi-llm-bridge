@@ -129,6 +129,10 @@ request: ({ context, model, signal }) => {
 
 That version is available separately at [`examples/exa-history.ts`](examples/exa-history.ts). It puts only Pi's newest event in `message` and converts earlier user, assistant, and tool-result events into `history`. Both adapters still include the live tool schemas and output protocol in every current request.
 
+## Raw SSE example
+
+[`examples/notrack.ts`](examples/notrack.ts) bridges NoTrack's raw `text/event-stream` endpoint to Pi. It demonstrates provider-specific request mapping, token extraction from custom SSE events, compact dynamic tool schemas for a per-message input limit, and reuse of the upstream `chat_id` so conversation history stays server-side.
+
 ## BitNet proof of concept
 
 [`examples/bitnet.ts`](examples/bitnet.ts) connects an extremely weak raw BitNet model to Pi as a proof of concept. It demonstrates how the bridge can give a model access to a good agent harness and schema-valid tool-call abilities through Needle; it is an experiment, not a claim that the underlying model becomes reliable or capable.
