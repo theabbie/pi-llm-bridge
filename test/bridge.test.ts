@@ -29,7 +29,7 @@ function setup(output: string, router?: ToolRouter) {
 }
 
 test("emits Pi text lifecycle events", async () => {
-  const { provider, model } = setup("<<<PI_TEXT>>>\nhello from raw\n<<<PI_END>>>");
+  const { provider, model } = setup("```text\nhello from raw\n```");
   const stream = provider.streamSimple(model, { messages: [] });
   const events = [];
   for await (const event of stream) events.push(event);
@@ -38,7 +38,7 @@ test("emits Pi text lifecycle events", async () => {
 });
 
 test("silently completes when strict output contains no valid blocks", async () => {
-  const { provider, model } = setup("unframed text\n<<<<PI_TOOL>>>\nls -la");
+  const { provider, model } = setup("unframed text\n```followups\nignored\n```");
   const stream = provider.streamSimple(model, { messages: [] });
   const events = [];
   for await (const event of stream) events.push(event);
@@ -47,7 +47,7 @@ test("silently completes when strict output contains no valid blocks", async () 
 });
 
 test("silently ignores empty text blocks", async () => {
-  const { provider, model } = setup("<<<PI_TEXT>>>\n  \n<<<PI_END>>>");
+  const { provider, model } = setup("```text\n  \n```");
   const stream = provider.streamSimple(model, { messages: [] });
   const events = [];
   for await (const event of stream) events.push(event);
@@ -62,7 +62,7 @@ test("turns routing failures into one-shot feedback", async () => {
     },
   };
   const { provider, model } = setup(
-    "<<<PI_TOOL>>>\ntool: bash\narguments:\n  command: broken\n<<<PI_END>>>",
+    "```tool\ntool: bash\narguments:\n  command: broken\n```",
     router,
   );
   const stream = provider.streamSimple(model, {
@@ -92,9 +92,9 @@ test("emits interleaved text and multiple Pi tool calls", async () => {
     },
   };
   const { provider, model } = setup(
-    "<<<PI_TEXT>>>\nI will check both.\n<<<PI_END>>>\n" +
-    "<<<PI_TOOL>>>\nrun pwd\n<<<PI_END>>>\n" +
-    "<<<PI_TOOL>>>\nrun date\n<<<PI_END>>>",
+    "```text\nI will check both.\n```\n" +
+    "```tool\nrun pwd\n```\n" +
+    "```tool\nrun date\n```",
     router,
   );
   const stream = provider.streamSimple(model, {

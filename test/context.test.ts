@@ -27,8 +27,8 @@ test("renders Pi context and tool history", () => {
       { role: "toolResult", toolCallId: "1", toolName: "bash", content: [{ type: "text", text: "203.0.113.4" }], isError: false, timestamp: 3 },
     ],
   });
-  assert.match(prompt, /<<<PI_TEXT>>>/);
-  assert.match(prompt, /<<<PI_TOOL>>>/);
+  assert.match(prompt, /```text/);
+  assert.match(prompt, /```tool/);
   assert.match(prompt, /AGENTS\.md content.*input data/);
   assert.match(prompt, /<pi_instructions input_only>/);
   assert.match(prompt, /<conversation input_only>/);

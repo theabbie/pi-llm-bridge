@@ -86,9 +86,9 @@ async function feedbackCall(context: Context, rejected: string, cause: unknown) 
   }
   const detail = cause instanceof Error ? cause.message : String(cause);
   const content =
-    "Your previous PI_TOOL block could not be converted into a valid Pi tool call. " +
-    "Continue the original task and emit a corrected YAML PI_TOOL block matching the live schema.\n\n" +
-    `Rejected tool block:\n${rejected}\n\nValidation error:\n${detail}\n`;
+    "Your previous tool fence could not be converted into a valid Pi tool call. " +
+    "Continue the original task and emit a corrected YAML tool fence matching the live schema.\n\n" +
+    `Rejected tool fence:\n${rejected}\n\nValidation error:\n${detail}\n`;
   await writeFile(resolve(process.cwd(), "last_output_feedback.log"), content, "utf8");
   return {
     name: "bash",

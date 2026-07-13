@@ -9,7 +9,6 @@ export default defineBridge({
     baseUrl: endpoint,
     models: [{ id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash through Exa" }],
   },
-  stopSequences: ["```followups", "\nFOLLOW-UP SUGGESTIONS", "\nFollow-up suggestions"],
   request: ({ prompt, model, signal }) => expectOk(fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

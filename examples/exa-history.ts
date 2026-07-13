@@ -9,7 +9,6 @@ export default defineBridge({
     baseUrl: endpoint,
     models: [{ id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash through Exa history" }],
   },
-  stopSequences: ["```followups", "\nFOLLOW-UP SUGGESTIONS", "\nFollow-up suggestions"],
   request: ({ context, model, signal }) => {
     const conversation = contextToBridgePromptWithHistory(context);
     return expectOk(fetch(endpoint, {

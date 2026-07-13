@@ -9,11 +9,11 @@ async function collect(source: AsyncIterable<any>) {
   return values;
 }
 
-test("parses split multiline ordered blocks", async () => {
+test("parses labelled Markdown fences split across chunks", async () => {
   async function* chunks() {
-    yield "<<<PI_TE";
-    yield "XT>>>\nI will inspect it first.\nThis is visible.\n<<<PI_END>>>\n<<<PI_TOOL>>>\nRun this exact command:\ncurl -s ";
-    yield "https://api.ipify.org\n<<<PI_END>>>";
+    yield "ordinary prose is ignored\n```te";
+    yield "xt\nI will inspect it first.\nThis is visible.\n```\n```tool\ntool: bash\narguments:\n  command: curl -s ";
+    yield "https://api.ipify.org\n```";
   }
   const events = await collect(parseProtocol(chunks()));
   assert.deepEqual(events.map((event) => event.type), [
@@ -23,64 +23,48 @@ test("parses split multiline ordered blocks", async () => {
   const text = events.filter((event) => event.kind === "text" && event.delta).map((event) => event.delta).join("");
   const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
   assert.equal(text, "I will inspect it first.\nThis is visible.");
-  assert.equal(tool, "Run this exact command:\ncurl -s https://api.ipify.org");
+  assert.equal(tool, "tool: bash\narguments:\n  command: curl -s https://api.ipify.org");
 });
 
-test("parses repeated tool blocks", async () => {
+test("parses repeated and interleaved labelled fences", async () => {
   async function* chunks() {
-    yield "<<<PI_TOOL>>>\nRead package.json\n<<<PI_END>>><<<PI_TOOL>>>\nRun npm test\n<<<PI_END>>>";
+    yield "```text\nChecking both.\n```\n```tool\nrun pwd\n```\n```tool\nrun date\n```";
   }
   const events = await collect(parseProtocol(chunks()));
+  assert.equal(events.filter((event) => event.type === "block_start" && event.kind === "text").length, 1);
   assert.equal(events.filter((event) => event.type === "block_start" && event.kind === "tool").length, 2);
 });
 
-test("recognizes adjacent delimiters split anywhere in the stream", async () => {
+test("silently ignores prose, followups, and other Markdown fences", async () => {
   async function* chunks() {
-    yield "<<<PI_TEXT>>>\nI will check it.<<<PI_EN";
-    yield "D>>><<<PI_TO";
-    yield "OL>>>curl -s https://api.ipify.org<<<PI_END>>>";
+    yield "outside\n```text\nvisible\n```\n```followups\n[\"ignored\"]\n```\n```json\n{\"ignored\":true}\n```";
   }
   const events = await collect(parseProtocol(chunks()));
-  const text = events.filter((event) => event.kind === "text" && event.delta).map((event) => event.delta).join("");
-  const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
-  assert.equal(text, "I will check it.");
-  assert.equal(tool, "curl -s https://api.ipify.org");
+  const content = events.filter((event) => event.delta).map((event) => event.delta).join("");
+  assert.equal(content, "visible");
 });
 
-test("silently ignores malformed markers and outside text", async () => {
+test("silently ignores malformed, unlabelled, and incorrectly labelled fences", async () => {
   async function* chunks() {
-    yield "<<<PI_TEXT>>>\nI will inspect it.\n<<<PI_END>>>\nstray text\n<<<<PI_TOOL>>>\nbash\nls -la\n<<<PI_END>>>";
-  }
-  const events = await collect(parseProtocol(chunks()));
-  const text = events.filter((event) => event.kind === "text" && event.delta).map((event) => event.delta).join("");
-  const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
-  assert.equal(text, "I will inspect it.");
-  assert.equal(tool, "");
-});
-
-test("silently ignores a response containing no valid blocks", async () => {
-  async function* chunks() {
-    yield "ordinary outside text\n<<<<PI_TOOL>>>\nls -la";
+    yield "``tool\nignored\n``\n```\nunlabelled\n```\n```tool yaml\nalso ignored\n```";
   }
   assert.deepEqual(await collect(parseProtocol(chunks())), []);
 });
 
-test("closes the final block at end of stream", async () => {
+test("silently ignores a response containing no valid fences", async () => {
   async function* chunks() {
-    yield "<<<PI_TOOL>>>\nline one\nline two";
+    yield "ordinary outside text";
   }
-  const events = await collect(parseProtocol(chunks()));
-  assert.equal(events.filter((event) => event.delta).map((event) => event.delta).join(""), "line one\nline two");
-  assert.equal(events.at(-1)?.type, "block_end");
+  assert.deepEqual(await collect(parseProtocol(chunks())), []);
 });
 
-test("stops across chunk boundaries", async () => {
+test("stops generic streams across chunk boundaries", async () => {
   async function* chunks() {
-    yield "<<<PI_TEXT>>>\ndone\n<<<PI_END>>>\n```fol";
-    yield "lowups\nignored";
+    yield "```text\ndone\n```\nFOLLOW-UP ";
+    yield "SUGGESTIONS\nignored";
   }
-  const values = await collect(stopAt(chunks(), ["```followups"]));
-  assert.equal(values.join(""), "<<<PI_TEXT>>>\ndone\n<<<PI_END>>>\n");
+  const values = await collect(stopAt(chunks(), ["FOLLOW-UP SUGGESTIONS"]));
+  assert.equal(values.join(""), "```text\ndone\n```\n");
 });
 
 test("supports non-strict raw text fallback", async () => {
