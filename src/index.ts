@@ -1,5 +1,10 @@
 export { defineBridge } from "./bridge.js";
-export { contextToBridgePrompt, flattenTools } from "./context.js";
+export {
+  contextToBridgePrompt,
+  contextToBridgePromptWithHistory,
+  flattenTools,
+  messageToText,
+} from "./context.js";
 export { parseProtocol } from "./protocol.js";
 export { createNeedleRouter } from "./router.js";
 export { expectOk, jsonLines, sse, sseJson, stopAt } from "./sse.js";

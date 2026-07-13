@@ -74,7 +74,7 @@ Opening and closing delimiters should appear alone on their lines. The parser ac
 This is the complete adapter for Exa's non-standard demo stream:
 
 ```ts
-import { defineBridge, expectOk, sseJson } from "pi-llm-bridge";
+import { contextToBridgePromptWithHistory, defineBridge, expectOk, sseJson } from "pi-llm-bridge";
 
 const endpoint = "https://demos.exa.ai/chatbot-demo/api/chat/stream";
 
@@ -85,19 +85,21 @@ export default defineBridge({
     baseUrl: endpoint,
     models: [{ id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash through Exa" }],
   },
-  stopSequences: ["```followups"],
-  request: ({ prompt, model, signal }) => expectOk(fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    ...(signal ? { signal } : {}),
-    body: JSON.stringify({
-      message: prompt,
-      history: [],
-      exaEnabled: false,
-      model: model.id,
-      searchType: "instant",
-    }),
-  })),
+  stopSequences: ["```followups", "\nFOLLOW-UP SUGGESTIONS", "\nFollow-up suggestions"],
+  request: ({ context, model, signal }) => {
+    const conversation = contextToBridgePromptWithHistory(context);
+    return expectOk(fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      ...(signal ? { signal } : {}),
+      body: JSON.stringify({
+        ...conversation,
+        exaEnabled: false,
+        model: model.id,
+        searchType: "instant",
+      }),
+    }));
+  },
   decode: (response) => sseJson(
     response,
     (event) => typeof event.content === "string" ? event.content : undefined,
@@ -106,6 +108,8 @@ export default defineBridge({
 ```
 
 The implementation is also available at [`examples/exa.ts`](examples/exa.ts).
+
+Exa's endpoint keeps no server-side session. `contextToBridgePromptWithHistory` puts only Pi's newest event in `message` and converts all earlier user, assistant, and tool-result events into Exa's client-supplied `history`. The current message still carries the live tool schemas and output protocol on every call.
 
 ## Adapter API
 
@@ -129,6 +133,8 @@ Useful optional configuration:
 - `router`: inject another compatible intent router
 
 `BridgeRequest` exposes the generated prompt, original Pi context, selected model, `AbortSignal`, resolved API key, headers, timeout, session ID, and original Pi stream options.
+
+`contextToBridgePromptWithHistory(context)` returns `{ message, history }` for endpoints that accept client-managed user/assistant history. `messageToText(message)` is available when an adapter needs custom history mapping.
 
 `BridgeDelta` can report text plus optional usage, response ID, and response model metadata:
 

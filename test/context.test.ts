@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "typebox";
-import { contextToBridgePrompt, flattenTools } from "../src/context.js";
+import {
+  contextToBridgePrompt,
+  contextToBridgePromptWithHistory,
+  flattenTools,
+  messageToText,
+} from "../src/context.js";
 
 test("renders Pi context and tool history", () => {
   const prompt = contextToBridgePrompt({
@@ -42,4 +47,44 @@ test("flattens TypeBox tool schemas for Needle", () => {
     path: { type: "string", description: "", required: true },
     offset: { type: "number", description: "", required: false },
   });
+});
+
+test("renders individual messages for provider history", () => {
+  assert.equal(messageToText({ role: "user", content: "hello", timestamp: 1 }), "hello");
+  assert.equal(messageToText({
+    role: "toolResult",
+    toolCallId: "1",
+    toolName: "read",
+    content: [{ type: "text", text: "file content" }],
+    isError: false,
+    timestamp: 2,
+  }), "TOOL read result:\nfile content");
+});
+
+test("moves prior Pi messages into provider history", () => {
+  const payload = contextToBridgePromptWithHistory({
+    systemPrompt: "Keep it concise.",
+    tools: [{ name: "read", description: "Read a file", parameters: Type.Object({ path: Type.String() }) }],
+    messages: [
+      { role: "user", content: "My secret is pineapple.", timestamp: 1 },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "Understood." }],
+        api: "test",
+        provider: "test",
+        model: "test",
+        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+        stopReason: "stop",
+        timestamp: 2,
+      },
+      { role: "user", content: "What was it?", timestamp: 3 },
+    ],
+  });
+  assert.deepEqual(payload.history, [
+    { role: "user", content: "My secret is pineapple." },
+    { role: "assistant", content: "Understood." },
+  ]);
+  assert.match(payload.message, /USER:\nWhat was it\?/);
+  assert.doesNotMatch(payload.message, /pineapple/);
+  assert.match(payload.message, /Live Pi tool schemas/);
 });

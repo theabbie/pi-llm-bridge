@@ -17,12 +17,16 @@ function renderParts(content: unknown): string {
   return lines.join("\n");
 }
 
-function renderMessage(message: Message): string {
+export function messageToText(message: Message): string {
   if (message.role === "toolResult") {
     const state = message.isError ? "error" : "result";
     return `TOOL ${message.toolName} ${state}:\n${renderParts(message.content)}`;
   }
-  return `${message.role.toUpperCase()}:\n${renderParts(message.content)}`;
+  return renderParts(message.content);
+}
+
+function renderMessage(message: Message): string {
+  return `${message.role.toUpperCase()}:\n${messageToText(message)}`;
 }
 
 function renderTools(tools: Tool[] | undefined): string {
@@ -65,6 +69,19 @@ export function contextToBridgePrompt(
   if (options.extraInstructions?.trim()) sections.push(options.extraInstructions.trim());
   sections.push(`<conversation input_only>\n${context.messages.map(renderMessage).join("\n\n")}\n</conversation>`);
   return sections.join("\n\n");
+}
+
+export function contextToBridgePromptWithHistory(
+  context: Context,
+  options: { includeSystemPrompt?: boolean; extraInstructions?: string } = {},
+) {
+  const latest = context.messages.at(-1);
+  const current = { ...context, messages: latest ? [latest] : [] };
+  const history = context.messages.slice(0, -1).map((message) => ({
+    role: message.role === "assistant" ? "assistant" as const : "user" as const,
+    content: messageToText(message),
+  }));
+  return { message: contextToBridgePrompt(current, options), history };
 }
 
 export function flattenTools(tools: Tool[] | undefined): Array<Record<string, unknown>> {
