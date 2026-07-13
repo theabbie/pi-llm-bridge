@@ -67,7 +67,7 @@ Text and tool blocks may repeat and interleave as separate top-level siblings. A
 
 ### Exact write payloads
 
-The `write` tool has a schema-validated fast path so Needle never has to reproduce a complete file. Its YAML header names the live argument receiving the payload, and the first line containing only `---` starts the exact, unindented file content:
+The `write` tool has a schema-validated fast path so Needle never has to reproduce a complete file. An ordinary YAML write call executes directly when its arguments already match Pi's live schema. For whitespace-sensitive content, the payload form below names the live argument receiving the file and uses the first line containing only `---` to start the exact, unindented content:
 
 `````markdown
 ````tool
@@ -83,7 +83,7 @@ main()
 ````
 `````
 
-The bridge parses the header with the YAML library, inserts the raw payload into the named argument, and validates the completed arguments against Pi's live `write` schema. Only then does it emit the call directly. If `payloadArgument` is omitted, the bridge accepts the envelope only when exactly one missing write parameter produces a schema-valid call. This keeps the path resilient to renamed write parameters without hardcoding `content`.
+The bridge parses ordinary calls and payload headers with the YAML library and validates their arguments against Pi's live `write` schema before emitting them directly. For a payload, it inserts the raw content into the named argument first. If `payloadArgument` is omitted, the bridge accepts the envelope only when exactly one missing write parameter produces a schema-valid call. This keeps the path resilient to renamed write parameters without hardcoding `content`.
 
 This direct path applies only to `write`. Every other tool—including schema-valid YAML—continues through Needle. A write envelope that cannot be parsed or validated also falls back to the normal Needle and recovery path. The outer Markdown fence must use a backtick run longer than any run contained in the file.
 
@@ -357,7 +357,7 @@ Pi's gallery discovers npm packages tagged `pi-package`; no separate gallery man
 - The upstream endpoint must produce usable natural language inside labelled `text` and `tool` Markdown fences.
 - The bundled fine-tune is strongest on Pi's four built-in coding tools. Dynamic tool schemas are accepted, but unrelated custom tools may need additional Needle fine-tuning.
 - Exact paths, commands, file content, and replacement text must be present in the raw model's YAML tool call. Needle is an extractor and normalizer, not a substitute for upstream reasoning.
-- Long and whitespace-sensitive write or edit payloads remain harder than short reads and shell commands.
+- Malformed write calls and long, whitespace-sensitive edit payloads remain harder than short reads and shell commands.
 - Tool arguments are validated against Pi's actual TypeBox schema before Pi receives them.
 - This package does not sandbox commands. Pi and its installed packages retain normal system access.
 

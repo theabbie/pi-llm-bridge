@@ -1,6 +1,6 @@
 {
   "name": "pi-llm-bridge",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "bridge any raw llm stream to be used with pi",
   "type": "module",
   "license": "MIT",

@@ -134,6 +134,30 @@ test("bypasses Needle only for a schema-valid raw write envelope", async () => {
   assert.deepEqual(call.arguments, { path: "app.py", content: file });
 });
 
+test("bypasses Needle for schema-valid ordinary write YAML", async () => {
+  const router: ToolRouter = {
+    async route() {
+      throw new Error("Needle must not receive a valid write call");
+    },
+  };
+  const { provider, model } = setup(
+    "```tool\ntool: write\narguments:\n  path: public/index.html\n  content: |\n    <h1>Snake</h1>\n```",
+    router,
+  );
+  const stream = provider.streamSimple(model, {
+    messages: [],
+    tools: [{ name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) }],
+  });
+  const events = [];
+  for await (const event of stream) events.push(event);
+  assert.deepEqual(events.at(-1).message.content[0], {
+    type: "toolCall",
+    id: events.at(-1).message.content[0].id,
+    name: "write",
+    arguments: { path: "public/index.html", content: "<h1>Snake</h1>\n" },
+  });
+});
+
 test("keeps schema-valid non-write YAML on the Needle path", async () => {
   let routed = "";
   const router: ToolRouter = {

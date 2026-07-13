@@ -23,22 +23,24 @@ function propertyNames(tool: Tool): string[] {
 
 export function directWriteCall(value: string, tools: Tool[]): ToolCallShape | undefined {
   const envelope = splitEnvelope(value);
-  if (!envelope) return undefined;
-
-  let header: unknown;
+  let document: unknown;
   try {
-    header = parse(envelope.header);
+    document = parse(envelope?.header ?? value);
   } catch {
     return undefined;
   }
-  if (!record(header) || header.tool !== "write") return undefined;
-  if (Object.keys(header).some((key) => !["tool", "arguments", "payloadArgument"].includes(key))) return undefined;
-  const args = header.arguments;
+  if (!record(document) || document.tool !== "write") return undefined;
+  const allowed = envelope ? ["tool", "arguments", "payloadArgument"] : ["tool", "arguments"];
+  if (Object.keys(document).some((key) => !allowed.includes(key))) return undefined;
+  const args = document.arguments;
   if (!record(args)) return undefined;
 
   const tool = tools.find((candidate) => candidate.name === "write");
   if (!tool) return undefined;
-  const explicit = typeof header.payloadArgument === "string" ? header.payloadArgument : undefined;
+  if (!envelope) {
+    return Value.Check(tool.parameters, args) ? { name: tool.name, arguments: args } : undefined;
+  }
+  const explicit = typeof document.payloadArgument === "string" ? document.payloadArgument : undefined;
   const candidates = explicit
     ? explicit in args ? [] : [explicit]
     : propertyNames(tool).filter((name) => !(name in args));

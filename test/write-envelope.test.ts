@@ -28,6 +28,23 @@ test("infers a unique omitted write payload parameter", () => {
   assert.deepEqual(call, { name: "write", arguments: { path: "empty.txt", content: "" } });
 });
 
+test("directly executes schema-valid ordinary write YAML", () => {
+  const content = "<!doctype html>\n<title>Snake</title>\n<script>\n  startGame();\n</script>";
+  const call = directWriteCall(
+    `tool: write\narguments:\n  path: public/index.html\n  content: |\n${content.split("\n").map((line) => `    ${line}`).join("\n")}`,
+    [{ name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) }],
+  );
+  assert.deepEqual(call, { name: "write", arguments: { path: "public/index.html", content: `${content}\n` } });
+});
+
+test("rejects ordinary write YAML that does not match the live schema", () => {
+  const call = directWriteCall(
+    "tool: write\narguments:\n  path: public/index.html",
+    [{ name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) }],
+  );
+  assert.equal(call, undefined);
+});
+
 test("rejects invalid and non-write envelopes", () => {
   const tools = [
     { name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) },
