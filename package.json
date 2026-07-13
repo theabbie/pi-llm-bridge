@@ -17,7 +17,7 @@
     "access": "public"
   },
   "bin": {
-    "pi-llm-bridge": "./scripts/setup.mjs"
+    "pi-llm-bridge": "scripts/setup.mjs"
   },
   "keywords": [
     "pi-package",
