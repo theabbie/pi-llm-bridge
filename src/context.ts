@@ -1,4 +1,5 @@
 import type { Context, Message, Tool } from "@earendil-works/pi-ai";
+import { stringify } from "yaml";
 
 function renderParts(content: unknown): string {
   if (typeof content === "string") return content;
@@ -25,8 +26,12 @@ function renderMessage(message: Message): string {
 }
 
 function renderTools(tools: Tool[] | undefined): string {
-  if (!tools?.length) return "- none";
-  return tools.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n");
+  if (!tools?.length) return "[]\n";
+  return stringify(tools.map((tool) => ({
+    tool: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+  })), { lineWidth: 0 });
 }
 
 export function contextToBridgePrompt(
@@ -42,14 +47,17 @@ export function contextToBridgePrompt(
     "A concise response or explanation visible to the user.",
     "<<<PI_END>>>",
     "<<<PI_TOOL>>>",
-    "One next action with every exact value needed to perform it.",
+    "tool: exact_tool_name",
+    "arguments:",
+    "  exact_parameter_name: exact value",
     "<<<PI_END>>>",
     "Text and tool blocks may be multiline, may repeat, and may be interleaved.",
     "Use a separate tool block for each independent action. For dependent actions, request one tool and wait for its result before choosing the next.",
-    "Inside a tool block, describe intent only. Do not emit JSON, schemas, tool-call syntax, or markdown fences.",
+    "Inside each tool block, output one YAML tool call matching the live schema below. Include every required argument and any useful optional arguments. Do not put explanations or markdown fences inside it.",
+    "For bash, the command argument must contain only the complete executable command. Put all explanation in a text block.",
     "Every opening and closing delimiter must be alone on its line. Never use delimiter text inside block content.",
     "Completed requests and tool results in the transcript already happened. Use them and do not repeat them.",
-    `Available actions:\n${renderTools(context.tools)}`,
+    `Live Pi tool schemas (YAML):\n${renderTools(context.tools)}`,
   ];
   if (options.includeSystemPrompt !== false && context.systemPrompt?.trim()) {
     sections.push(`<pi_instructions input_only>\n${context.systemPrompt.trim()}\n</pi_instructions>`);

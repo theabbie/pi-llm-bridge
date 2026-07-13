@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile, unlink } from "node:fs/promises";
 import test from "node:test";
 import { Type } from "typebox";
 import { defineBridge } from "../src/bridge.js";
@@ -43,6 +44,43 @@ test("silently completes when strict output contains no valid blocks", async () 
   for await (const event of stream) events.push(event);
   assert.deepEqual(events.map((event) => event.type), ["start", "done"]);
   assert.deepEqual(events.at(-1).message.content, []);
+});
+
+test("silently ignores empty text blocks", async () => {
+  const { provider, model } = setup("<<<PI_TEXT>>>\n  \n<<<PI_END>>>");
+  const stream = provider.streamSimple(model, { messages: [] });
+  const events = [];
+  for await (const event of stream) events.push(event);
+  assert.deepEqual(events.map((event) => event.type), ["start", "done"]);
+  assert.deepEqual(events.at(-1).message.content, []);
+});
+
+test("turns routing failures into one-shot feedback", async () => {
+  const router: ToolRouter = {
+    async route() {
+      throw new Error("bad generated arguments");
+    },
+  };
+  const { provider, model } = setup(
+    "<<<PI_TOOL>>>\ntool: bash\narguments:\n  command: broken\n<<<PI_END>>>",
+    router,
+  );
+  const stream = provider.streamSimple(model, {
+    messages: [],
+    tools: [{ name: "bash", description: "Run a command", parameters: Type.Object({ command: Type.String() }) }],
+  });
+  const events = [];
+  try {
+    for await (const event of stream) events.push(event);
+    const call = events.at(-1).message.content[0];
+    assert.equal(call.name, "bash");
+    assert.equal(call.arguments.command, "cat -- last_output_feedback.log && : > last_output_feedback.log");
+    const feedback = await readFile("last_output_feedback.log", "utf8");
+    assert.match(feedback, /tool: bash/);
+    assert.match(feedback, /bad generated arguments/);
+  } finally {
+    await unlink("last_output_feedback.log").catch(() => {});
+  }
 });
 
 test("emits interleaved text and multiple Pi tool calls", async () => {

@@ -40,28 +40,32 @@ npx pi-llm-bridge status
 
 ```text
 Pi context
-  → framed text protocol prompt
+  → framed protocol prompt with live Pi tool schemas as YAML
   → any raw model endpoint
   → provider-specific stream decoder
   → PI_TEXT block ───────────────────→ Pi text events
-  → PI_TOOL block with plain-language intent
+  → PI_TOOL block with a near-final YAML tool call
       → Needle tool router
       → validated Pi tool call
       → Pi executes it and continues the conversation
 ```
 
-The raw model never needs OpenAI compatibility, native function calling, tool schemas, or Pi event knowledge. It emits ordered, multiline blocks:
+The raw model never needs OpenAI compatibility, native function calling, or Pi event knowledge. The bridge serializes Pi's current tool names, descriptions, parameter types, and required fields into every stateless model request. The model emits ordered, multiline blocks:
 
 ```text
 <<<PI_TEXT>>>
 I will inspect the project first.
 <<<PI_END>>>
 <<<PI_TOOL>>>
-Read package.json and return its full content.
+tool: read
+arguments:
+  path: package.json
 <<<PI_END>>>
 ```
 
-Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Each tool block contains one plain-language intent; Needle converts it using Pi's current tool schemas. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
+Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Each tool block contains one YAML mapping with `tool` and `arguments`; Needle extracts and normalizes it against Pi's current schema. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
+
+If Needle cannot produce a schema-valid call, the bridge returns the rejected YAML and validation error through a one-shot `last_output_feedback.log` bash call. Pi feeds that result back into the normal conversation so the raw model can continue the task with a corrected block; the command empties the file immediately after reading it.
 
 Opening and closing delimiters should appear alone on their lines. The parser accepts adjacent valid delimiters, delimiters split across stream chunks, and an omitted final closing delimiter at end of stream. In strict mode, unrelated text and malformed delimiters outside valid blocks are ignored. Block content can otherwise contain arbitrary text and newlines.
 
@@ -290,7 +294,7 @@ Pi's gallery discovers npm packages tagged `pi-package`; no separate gallery man
 
 - The upstream endpoint must produce usable natural language and follow the framed block protocol.
 - The bundled fine-tune is strongest on Pi's four built-in coding tools. Dynamic tool schemas are accepted, but unrelated custom tools may need additional Needle fine-tuning.
-- Exact paths, commands, file content, and replacement text must be present in the raw model's tool intent. Needle is a parser, not a substitute for upstream reasoning.
+- Exact paths, commands, file content, and replacement text must be present in the raw model's YAML tool call. Needle is an extractor and normalizer, not a substitute for upstream reasoning.
 - Long and whitespace-sensitive write or edit payloads remain harder than short reads and shell commands.
 - Tool arguments are validated against Pi's actual TypeBox schema before Pi receives them.
 - This package does not sandbox commands. Pi and its installed packages retain normal system access.

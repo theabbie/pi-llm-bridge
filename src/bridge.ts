@@ -1,4 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
   type AssistantMessage,
   type AssistantMessageEventStream,
@@ -78,6 +80,22 @@ function emitTool(
   stream.push({ type: "toolcall_end", contentIndex, toolCall, partial: output });
 }
 
+async function feedbackCall(context: Context, rejected: string, cause: unknown) {
+  if (!context.tools?.some((tool) => tool.name === "bash")) {
+    throw new AggregateError([cause], "Tool-call recovery requires Pi's bash tool");
+  }
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  const content =
+    "Your previous PI_TOOL block could not be converted into a valid Pi tool call. " +
+    "Continue the original task and emit a corrected YAML PI_TOOL block matching the live schema.\n\n" +
+    `Rejected tool block:\n${rejected}\n\nValidation error:\n${detail}\n`;
+  await writeFile(resolve(process.cwd(), "last_output_feedback.log"), content, "utf8");
+  return {
+    name: "bash",
+    arguments: { command: "cat -- last_output_feedback.log && : > last_output_feedback.log" },
+  };
+}
+
 function streamBridge<TResponse>(
   config: BridgeConfig<TResponse>,
   router: ToolRouter,
@@ -110,6 +128,7 @@ function streamBridge<TResponse>(
       const stopped = stopAt(decoded, config.stopSequences ?? []);
       let kind: "text" | "tool" | undefined;
       let textIndex = -1;
+      let pendingText = "";
       let intent = "";
       let toolCalls = 0;
       for await (const event of parseProtocol(stopped, config.strictProtocol !== false)) {
@@ -121,9 +140,8 @@ function streamBridge<TResponse>(
           if (kind) throw new Error("Raw model started a Pi block before closing the previous block");
           kind = event.kind;
           if (kind === "text") {
-            textIndex = output.content.length;
-            output.content.push({ type: "text", text: "" });
-            stream.push({ type: "text_start", contentIndex: textIndex, partial: output });
+            textIndex = -1;
+            pendingText = "";
           } else {
             intent = "";
           }
@@ -134,6 +152,16 @@ function streamBridge<TResponse>(
           continue;
         }
         if (event.type === "block_delta" && kind === "text") {
+          if (textIndex < 0) {
+            pendingText += event.delta;
+            if (!pendingText.trim()) continue;
+            textIndex = output.content.length;
+            output.content.push({ type: "text", text: pendingText });
+            stream.push({ type: "text_start", contentIndex: textIndex, partial: output });
+            stream.push({ type: "text_delta", contentIndex: textIndex, delta: pendingText, partial: output });
+            pendingText = "";
+            continue;
+          }
           const block = output.content[textIndex];
           if (!block || block.type !== "text") throw new Error("Invalid Pi text block state");
           block.text += event.delta;
@@ -144,15 +172,25 @@ function streamBridge<TResponse>(
         if (kind === "tool") {
           const action = intent.trim();
           if (!action) throw new Error("Raw model returned an empty tool block");
-          const calls = await router.route(action, context.tools ?? [], options?.signal);
-          if (!calls.length) throw new Error("Needle returned no tool calls");
+          let calls;
+          try {
+            calls = await router.route(action, context.tools ?? [], options?.signal);
+            if (!calls.length) throw new Error("Needle returned no tool calls");
+          } catch (error) {
+            if (options?.signal?.aborted) throw error;
+            calls = [await feedbackCall(context, action, error)];
+          }
           for (const call of calls) {
             emitTool(stream, output, call.name, call.arguments);
             toolCalls += 1;
           }
         } else {
+          if (textIndex < 0) {
+            kind = undefined;
+            continue;
+          }
           const block = output.content[textIndex];
-          if (!block || block.type !== "text" || !block.text.trim()) throw new Error("Raw model returned an empty text block");
+          if (!block || block.type !== "text") throw new Error("Invalid Pi text block state");
           stream.push({ type: "text_end", contentIndex: textIndex, content: block.text, partial: output });
         }
         kind = undefined;

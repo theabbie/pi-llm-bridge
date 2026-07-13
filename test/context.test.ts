@@ -30,6 +30,10 @@ test("renders Pi context and tool history", () => {
   assert.match(prompt, /Keep changes small/);
   assert.match(prompt, /completed request bash/);
   assert.match(prompt, /203\.0\.113\.4/);
+  assert.match(prompt, /Live Pi tool schemas \(YAML\)/);
+  assert.match(prompt, /tool: bash/);
+  assert.match(prompt, /parameters:\n\s+type: object/);
+  assert.match(prompt, /command:\n\s+type: string/);
 });
 
 test("flattens TypeBox tool schemas for Needle", () => {
