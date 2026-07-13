@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { prepareModel, runtimeStatus } from "./dist/index.js";
+import { prepareModel, runtimeStatus } from "./dist/runtime.js";
 
 export default function (pi: ExtensionAPI): void {
   pi.registerCommand("llm-bridge", {

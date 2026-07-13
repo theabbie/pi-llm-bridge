@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { prepareModel, runtimeStatus } from "../dist/index.js";
+import { prepareModel, runtimeStatus } from "../dist/runtime.js";
 
 const command = process.argv[2] ?? "setup";
 
