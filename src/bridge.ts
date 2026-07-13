@@ -111,7 +111,6 @@ function streamBridge<TResponse>(
       let kind: "text" | "tool" | undefined;
       let textIndex = -1;
       let intent = "";
-      let blocks = 0;
       let toolCalls = 0;
       for await (const event of parseProtocol(stopped, config.strictProtocol !== false)) {
         if (event.type === "metadata") {
@@ -121,7 +120,6 @@ function streamBridge<TResponse>(
         if (event.type === "block_start") {
           if (kind) throw new Error("Raw model started a Pi block before closing the previous block");
           kind = event.kind;
-          blocks += 1;
           if (kind === "text") {
             textIndex = output.content.length;
             output.content.push({ type: "text", text: "" });
@@ -159,7 +157,6 @@ function streamBridge<TResponse>(
         }
         kind = undefined;
       }
-      if (!blocks) throw new Error("Raw model returned no Pi content blocks");
       output.stopReason = toolCalls ? "toolUse" : "stop";
       stream.push({ type: "done", reason: output.stopReason === "toolUse" ? "toolUse" : "stop", message: output });
       stream.end();

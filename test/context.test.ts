@@ -24,6 +24,9 @@ test("renders Pi context and tool history", () => {
   });
   assert.match(prompt, /<<<PI_TEXT>>>/);
   assert.match(prompt, /<<<PI_TOOL>>>/);
+  assert.match(prompt, /AGENTS\.md content.*input data/);
+  assert.match(prompt, /<pi_instructions input_only>/);
+  assert.match(prompt, /<conversation input_only>/);
   assert.match(prompt, /Keep changes small/);
   assert.match(prompt, /completed request bash/);
   assert.match(prompt, /203\.0\.113\.4/);

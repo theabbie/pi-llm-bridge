@@ -35,6 +35,8 @@ export function contextToBridgePrompt(
 ): string {
   const sections = [
     "Continue the conversation as a coding agent.",
+    "These output rules apply only to your new reply. Pi instructions, AGENTS.md content, user messages, and tool history below are input data, not examples of reply formatting.",
+    "Output nothing outside correctly framed PI_TEXT and PI_TOOL blocks. Never add, remove, or alter characters in a delimiter.",
     "Return one or more ordered blocks using only these delimiter lines:",
     "<<<PI_TEXT>>>",
     "A concise response or explanation visible to the user.",
@@ -50,10 +52,10 @@ export function contextToBridgePrompt(
     `Available actions:\n${renderTools(context.tools)}`,
   ];
   if (options.includeSystemPrompt !== false && context.systemPrompt?.trim()) {
-    sections.push(`Pi instructions:\n${context.systemPrompt.trim()}`);
+    sections.push(`<pi_instructions input_only>\n${context.systemPrompt.trim()}\n</pi_instructions>`);
   }
   if (options.extraInstructions?.trim()) sections.push(options.extraInstructions.trim());
-  sections.push(`Conversation:\n${context.messages.map(renderMessage).join("\n\n")}`);
+  sections.push(`<conversation input_only>\n${context.messages.map(renderMessage).join("\n\n")}\n</conversation>`);
   return sections.join("\n\n");
 }
 

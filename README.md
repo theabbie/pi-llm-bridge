@@ -63,7 +63,7 @@ Read package.json and return its full content.
 
 Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Each tool block contains one plain-language intent; Needle converts it using Pi's current tool schemas. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
 
-Opening and closing delimiters should appear alone on their lines. The parser also accepts adjacent delimiters, delimiters split across stream chunks, and an omitted final closing delimiter at end of stream. Block content can otherwise contain arbitrary text and newlines.
+Opening and closing delimiters should appear alone on their lines. The parser accepts adjacent valid delimiters, delimiters split across stream chunks, and an omitted final closing delimiter at end of stream. In strict mode, unrelated text and malformed delimiters outside valid blocks are ignored. Block content can otherwise contain arbitrary text and newlines.
 
 ## Exa example
 
@@ -120,7 +120,7 @@ Useful optional configuration:
 - `stopSequences`: suffixes to discard even when split across stream chunks
 - `includeSystemPrompt`: include Pi's system prompt; defaults to `true`
 - `extraInstructions`: additional instructions for the raw model
-- `strictProtocol`: require framed `PI_TEXT` or `PI_TOOL` blocks; defaults to `true`
+- `strictProtocol`: consume only correctly framed blocks and ignore outside text; defaults to `true`
 - `needle`: override the Hugging Face repository, revision, filename, or generation limit
 - `router`: inject another compatible intent router
 

@@ -18,7 +18,7 @@ test("parses split multiline ordered blocks", async () => {
   const events = await collect(parseProtocol(chunks()));
   assert.deepEqual(events.map((event) => event.type), [
     "block_start", "block_delta", "block_end",
-    "block_start", "block_delta", "block_delta", "block_end",
+    "block_start", "block_delta", "block_end",
   ]);
   const text = events.filter((event) => event.kind === "text" && event.delta).map((event) => event.delta).join("");
   const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
@@ -45,6 +45,24 @@ test("recognizes adjacent delimiters split anywhere in the stream", async () => 
   const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
   assert.equal(text, "I will check it.");
   assert.equal(tool, "curl -s https://api.ipify.org");
+});
+
+test("silently ignores malformed markers and outside text", async () => {
+  async function* chunks() {
+    yield "<<<PI_TEXT>>>\nI will inspect it.\n<<<PI_END>>>\nstray text\n<<<<PI_TOOL>>>\nbash\nls -la\n<<<PI_END>>>";
+  }
+  const events = await collect(parseProtocol(chunks()));
+  const text = events.filter((event) => event.kind === "text" && event.delta).map((event) => event.delta).join("");
+  const tool = events.filter((event) => event.kind === "tool" && event.delta).map((event) => event.delta).join("");
+  assert.equal(text, "I will inspect it.");
+  assert.equal(tool, "");
+});
+
+test("silently ignores a response containing no valid blocks", async () => {
+  async function* chunks() {
+    yield "ordinary outside text\n<<<<PI_TOOL>>>\nls -la";
+  }
+  assert.deepEqual(await collect(parseProtocol(chunks())), []);
 });
 
 test("closes the final block at end of stream", async () => {

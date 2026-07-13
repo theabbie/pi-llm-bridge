@@ -36,6 +36,15 @@ test("emits Pi text lifecycle events", async () => {
   assert.equal(events.at(-1).message.content[0].text, "hello from raw");
 });
 
+test("silently completes when strict output contains no valid blocks", async () => {
+  const { provider, model } = setup("unframed text\n<<<<PI_TOOL>>>\nls -la");
+  const stream = provider.streamSimple(model, { messages: [] });
+  const events = [];
+  for await (const event of stream) events.push(event);
+  assert.deepEqual(events.map((event) => event.type), ["start", "done"]);
+  assert.deepEqual(events.at(-1).message.content, []);
+});
+
 test("emits interleaved text and multiple Pi tool calls", async () => {
   const intents: string[] = [];
   const router: ToolRouter = {

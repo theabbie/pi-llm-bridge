@@ -12,6 +12,35 @@ export const TEXT_BLOCK = "<<<PI_TEXT>>>";
 export const TOOL_BLOCK = "<<<PI_TOOL>>>";
 export const END_BLOCK = "<<<PI_END>>>";
 
+function findMarker(value: string, marker: string): number {
+  let from = 0;
+  while (from < value.length) {
+    const index = value.indexOf(marker, from);
+    if (index < 0) return -1;
+    if (index === 0 || value[index - 1] !== "<") return index;
+    from = index + 1;
+  }
+  return -1;
+}
+
+function findOpener(value: string): { index: number; kind: ProtocolKind; marker: string } | undefined {
+  const matches = [
+    { index: findMarker(value, TEXT_BLOCK), kind: "text" as const, marker: TEXT_BLOCK },
+    { index: findMarker(value, TOOL_BLOCK), kind: "tool" as const, marker: TOOL_BLOCK },
+  ].filter((match) => match.index >= 0).sort((left, right) => left.index - right.index);
+  return matches[0];
+}
+
+function trailingOpenerPrefix(value: string): string {
+  for (let length = Math.min(value.length, TOOL_BLOCK.length - 1); length > 0; length -= 1) {
+    const start = value.length - length;
+    const suffix = value.slice(start);
+    const boundary = start === 0 || value[start - 1] !== "<";
+    if (boundary && (TEXT_BLOCK.startsWith(suffix) || TOOL_BLOCK.startsWith(suffix))) return suffix;
+  }
+  return "";
+}
+
 export async function* parseProtocol(
   source: AsyncIterable<BridgeChunk>,
   strict = true,
@@ -34,24 +63,27 @@ export async function* parseProtocol(
       if (!kind) {
         buffer = buffer.replace(/^\s+/, "");
         if (!buffer) break;
-        if (buffer.startsWith(TEXT_BLOCK) || buffer.startsWith(TOOL_BLOCK)) {
-          kind = buffer.startsWith(TEXT_BLOCK) ? "text" : "tool";
-          const opener = kind === "text" ? TEXT_BLOCK : TOOL_BLOCK;
-          buffer = buffer.slice(opener.length);
+        const opener = findOpener(buffer);
+        if (opener) {
+          kind = opener.kind;
+          buffer = buffer.slice(opener.index + opener.marker.length);
           blockStarted = false;
           blocks += 1;
           events.push({ type: "block_start", kind });
           continue;
         }
-        const partialOpener = TEXT_BLOCK.startsWith(buffer) || TOOL_BLOCK.startsWith(buffer);
-        if (partialOpener && !final) break;
-        if (strict || blocks) {
-          throw new Error(`Raw model emitted content outside a Pi block: ${buffer.slice(0, 160)}`);
+        if (!strict && !blocks) {
+          fallback = true;
+          blocks += 1;
+          events.push({ type: "block_start", kind: "text" });
+          continue;
         }
-        fallback = true;
-        blocks += 1;
-        events.push({ type: "block_start", kind: "text" });
-        continue;
+        if (final) {
+          buffer = "";
+          break;
+        }
+        buffer = trailingOpenerPrefix(buffer);
+        break;
       }
 
       if (!blockStarted) {
@@ -61,7 +93,7 @@ export async function* parseProtocol(
         blockStarted = true;
       }
 
-      const end = buffer.indexOf(END_BLOCK);
+      const end = findMarker(buffer, END_BLOCK);
       if (end >= 0) {
         const delta = buffer.slice(0, end).replace(/\r?\n$/, "");
         if (delta) events.push({ type: "block_delta", kind, delta });
@@ -81,7 +113,7 @@ export async function* parseProtocol(
         blockStarted = false;
         continue;
       }
-      const safeLength = buffer.length - END_BLOCK.length - 1;
+      const safeLength = buffer.length - 96;
       if (safeLength <= 0) break;
       events.push({ type: "block_delta", kind, delta: buffer.slice(0, safeLength) });
       buffer = buffer.slice(safeLength);
@@ -102,5 +134,4 @@ export async function* parseProtocol(
   for (const event of drain(true)) yield event;
   if (fallback) yield { type: "block_end", kind: "text" };
   else if (kind) yield { type: "block_end", kind };
-  if (!blocks) throw new Error("Raw model returned no Pi content blocks");
 }
