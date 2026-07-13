@@ -56,12 +56,26 @@ export function contextToBridgePrompt(
     "```",
     "Text and tool fences may be multiline, may repeat, and may be interleaved.",
     "Use a separate tool block for each independent action. For dependent actions, request one tool and wait for its result before choosing the next.",
-    "Inside each tool fence, output one YAML tool call matching the live schema below. Include every required argument and any useful optional arguments. Do not put explanations or nested Markdown fences inside it.",
+    "Normally, inside each tool fence, output one YAML tool call matching the live schema below. Include every required argument and any useful optional arguments. Do not put explanations or nested Markdown fences inside it.",
     "For bash, the command argument must contain only the complete executable command. Put all explanation in a text block.",
     "Every opening and closing fence must be alone on its line. Output outside text and tool fences is ignored.",
     "Completed requests and tool results in the transcript already happened. Use them and do not repeat them.",
     `Live Pi tool schemas (YAML):\n${renderTools(context.tools)}`,
   ];
+  if (context.tools?.some((tool) => tool.name === "write")) {
+    sections.push([
+      "Only for the write tool, put complete file content in a raw payload instead of making Needle reproduce it. Use a tool fence whose opening and closing backtick runs are longer than any backtick run in the file:",
+      "````tool",
+      "tool: write",
+      "payloadArgument: exact_live_parameter_name_for_file_content",
+      "arguments:",
+      "  every_other_required_parameter: exact value",
+      "---",
+      "raw file content starts here with no YAML indentation",
+      "````",
+      "The first line containing only --- separates the YAML header from the exact raw payload. payloadArgument must name the corresponding string parameter in the live write schema. This raw-payload form is exclusive to write; use normal YAML arguments for every other tool.",
+    ].join("\n"));
+  }
   if (options.includeSystemPrompt !== false && context.systemPrompt?.trim()) {
     sections.push(`<pi_instructions input_only>\n${context.systemPrompt.trim()}\n</pi_instructions>`);
   }

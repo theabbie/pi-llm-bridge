@@ -88,3 +88,17 @@ test("moves prior Pi messages into provider history", () => {
   assert.doesNotMatch(payload.message, /pineapple/);
   assert.match(payload.message, /Live Pi tool schemas/);
 });
+
+test("teaches the raw write payload envelope only when write is available", () => {
+  const writePrompt = contextToBridgePrompt({
+    messages: [],
+    tools: [{ name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) }],
+  });
+  const bashPrompt = contextToBridgePrompt({
+    messages: [],
+    tools: [{ name: "bash", description: "Run a command", parameters: Type.Object({ command: Type.String() }) }],
+  });
+  assert.match(writePrompt, /payloadArgument: exact_live_parameter_name_for_file_content/);
+  assert.match(writePrompt, /raw file content starts here with no YAML indentation/);
+  assert.doesNotMatch(bashPrompt, /payloadArgument/);
+});

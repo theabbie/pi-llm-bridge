@@ -63,7 +63,29 @@ arguments:
 ```
 ````
 
-Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Each tool block contains one YAML mapping with `tool` and `arguments`; Needle extracts and normalizes it against Pi's current schema. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
+Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Normally, each tool block contains one YAML mapping with `tool` and `arguments`; Needle extracts and normalizes it against Pi's current schema. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
+
+### Exact write payloads
+
+The `write` tool has a schema-validated fast path so Needle never has to reproduce a complete file. Its YAML header names the live argument receiving the payload, and the first line containing only `---` starts the exact, unindented file content:
+
+`````markdown
+````tool
+tool: write
+payloadArgument: content
+arguments:
+  path: src/app.py
+---
+def main():
+    print("hello")
+
+main()
+````
+`````
+
+The bridge parses the header with the YAML library, inserts the raw payload into the named argument, and validates the completed arguments against Pi's live `write` schema. Only then does it emit the call directly. If `payloadArgument` is omitted, the bridge accepts the envelope only when exactly one missing write parameter produces a schema-valid call. This keeps the path resilient to renamed write parameters without hardcoding `content`.
+
+This direct path applies only to `write`. Every other tool—including schema-valid YAML—continues through Needle. A write envelope that cannot be parsed or validated also falls back to the normal Needle and recovery path. The outer Markdown fence must use a backtick run longer than any run contained in the file.
 
 If Needle cannot produce a schema-valid call, the bridge returns the rejected YAML and validation error through a one-shot `last_output_feedback.log` bash call. Pi feeds that result back into the normal conversation so the raw model can continue the task with a corrected block; the command empties the file immediately after reading it.
 

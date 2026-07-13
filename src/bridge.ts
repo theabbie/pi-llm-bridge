@@ -15,6 +15,7 @@ import { parseProtocol } from "./protocol.js";
 import { createNeedleRouter } from "./router.js";
 import { stopAt } from "./sse.js";
 import type { BridgeConfig, BridgeDelta, BridgeModel, BridgeRequest, ToolRouter } from "./types.js";
+import { directWriteCall } from "./write-envelope.js";
 
 function modelConfig(model: BridgeModel) {
   return {
@@ -170,15 +171,20 @@ function streamBridge<TResponse>(
         }
         if (event.type !== "block_end" || event.kind !== kind) throw new Error("Invalid Pi block state");
         if (kind === "tool") {
-          const action = intent.trim();
-          if (!action) throw new Error("Raw model returned an empty tool block");
+          if (!intent.trim()) throw new Error("Raw model returned an empty tool block");
+          const direct = directWriteCall(intent, context.tools ?? []);
           let calls;
-          try {
-            calls = await router.route(action, context.tools ?? [], options?.signal);
-            if (!calls.length) throw new Error("Needle returned no tool calls");
-          } catch (error) {
-            if (options?.signal?.aborted) throw error;
-            calls = [await feedbackCall(context, action, error)];
+          if (direct) {
+            calls = [direct];
+          } else {
+            const action = intent.trim();
+            try {
+              calls = await router.route(action, context.tools ?? [], options?.signal);
+              if (!calls.length) throw new Error("Needle returned no tool calls");
+            } catch (error) {
+              if (options?.signal?.aborted) throw error;
+              calls = [await feedbackCall(context, action, error)];
+            }
           }
           for (const call of calls) {
             emitTool(stream, output, call.name, call.arguments);

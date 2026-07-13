@@ -111,3 +111,45 @@ test("emits interleaved text and multiple Pi tool calls", async () => {
   ]);
   assert.equal(events.at(-1).message.stopReason, "toolUse");
 });
+
+test("bypasses Needle only for a schema-valid raw write envelope", async () => {
+  const router: ToolRouter = {
+    async route() {
+      throw new Error("Needle must not receive a valid raw write payload");
+    },
+  };
+  const file = "def greet(name):\n    return f\"hello {name}\"\n\n```python\nprint(greet('Pi'))\n```";
+  const { provider, model } = setup(
+    "````tool\ntool: write\npayloadArgument: content\narguments:\n  path: app.py\n---\n" + file + "\n````",
+    router,
+  );
+  const stream = provider.streamSimple(model, {
+    messages: [],
+    tools: [{ name: "write", description: "Write a file", parameters: Type.Object({ path: Type.String(), content: Type.String() }) }],
+  });
+  const events = [];
+  for await (const event of stream) events.push(event);
+  const call = events.at(-1).message.content[0];
+  assert.equal(call.name, "write");
+  assert.deepEqual(call.arguments, { path: "app.py", content: file });
+});
+
+test("keeps schema-valid non-write YAML on the Needle path", async () => {
+  let routed = "";
+  const router: ToolRouter = {
+    async route(intent) {
+      routed = intent;
+      return [{ name: "bash", arguments: { command: "pwd" } }];
+    },
+  };
+  const { provider, model } = setup(
+    "```tool\ntool: bash\narguments:\n  command: pwd\n```",
+    router,
+  );
+  const stream = provider.streamSimple(model, {
+    messages: [],
+    tools: [{ name: "bash", description: "Run a command", parameters: Type.Object({ command: Type.String() }) }],
+  });
+  for await (const _event of stream) {}
+  assert.match(routed, /tool: bash/);
+});
