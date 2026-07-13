@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import type { NeedleModelConfig } from "./types.js";
 
 const NEEDLE_COMMIT = "ffb1c5144c5a16cb8ec650dbc8a6f6fd3854f8f2";
-const RUNTIME_VERSION = `1:${NEEDLE_COMMIT}`;
+const JSON_REPAIR_VERSION = "0.61.2";
+const RUNTIME_VERSION = `2:${NEEDLE_COMMIT}:${JSON_REPAIR_VERSION}`;
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const WORKER = join(PACKAGE_ROOT, "python", "worker.py");
 let setupPromise: Promise<string> | undefined;
@@ -100,7 +101,11 @@ export async function prepareRuntime(): Promise<string> {
     }
     await run(
       python,
-      ["-m", "pip", "install", "--disable-pip-version-check", `needle @ git+https://github.com/cactus-compute/needle.git@${NEEDLE_COMMIT}`],
+      [
+        "-m", "pip", "install", "--disable-pip-version-check",
+        `needle @ git+https://github.com/cactus-compute/needle.git@${NEEDLE_COMMIT}`,
+        `json-repair==${JSON_REPAIR_VERSION}`,
+      ],
       1200000,
     );
     await writeFile(marker, `${RUNTIME_VERSION}\n`, "utf8");

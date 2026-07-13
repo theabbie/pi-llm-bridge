@@ -2,6 +2,7 @@ import argparse
 import json
 import sys
 
+import json_repair
 from huggingface_hub import hf_hub_download
 from needle import SimpleAttentionNetwork, generate, get_tokenizer, load_checkpoint
 
@@ -37,7 +38,7 @@ def main():
                 max_gen_len=request.get("max_tokens", 512),
                 stream=False,
             )
-            calls = json.loads(result)
+            calls = json_repair.loads(result)
             if not isinstance(calls, list) or not calls:
                 raise ValueError("model returned no tool calls")
             respond({"id": request_id, "calls": calls})

@@ -170,8 +170,10 @@ The installation script prepares the runtime and checkpoint. During a Pi session
 1. downloads the 52.6 MB checkpoint through the Hugging Face cache;
 2. loads Needle once per Pi process;
 3. accepts intent-routing requests over NDJSON;
-4. stays warm in interactive sessions;
-5. stops holding the process open after non-interactive runs.
+4. repairs malformed Needle JSON with [json-repair](https://github.com/mangiucugna/json_repair);
+5. validates every repaired tool name and argument against Pi's live schemas;
+6. stays warm in interactive sessions;
+7. stops holding the process open after non-interactive runs.
 
 The isolated Python environment lives under the platform cache directory. Needle's JAX environment is substantially larger than the model checkpoint.
 
