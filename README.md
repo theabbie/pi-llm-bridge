@@ -69,12 +69,12 @@ If Needle cannot produce a schema-valid call, the bridge returns the rejected YA
 
 Opening and closing delimiters should appear alone on their lines. The parser accepts adjacent valid delimiters, delimiters split across stream chunks, and an omitted final closing delimiter at end of stream. In strict mode, unrelated text and malformed delimiters outside valid blocks are ignored. Block content can otherwise contain arbitrary text and newlines.
 
-## Exa example
+## Exa examples
 
-This is the complete adapter for Exa's non-standard demo stream:
+The default example keeps Pi's complete serialized conversation in `message`. This is the proven path for plain text endpoints:
 
 ```ts
-import { contextToBridgePromptWithHistory, defineBridge, expectOk, sseJson } from "pi-llm-bridge";
+import { defineBridge, expectOk, sseJson } from "pi-llm-bridge";
 
 const endpoint = "https://demos.exa.ai/chatbot-demo/api/chat/stream";
 
@@ -86,20 +86,18 @@ export default defineBridge({
     models: [{ id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash through Exa" }],
   },
   stopSequences: ["```followups", "\nFOLLOW-UP SUGGESTIONS", "\nFollow-up suggestions"],
-  request: ({ context, model, signal }) => {
-    const conversation = contextToBridgePromptWithHistory(context);
-    return expectOk(fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      ...(signal ? { signal } : {}),
-      body: JSON.stringify({
-        ...conversation,
-        exaEnabled: false,
-        model: model.id,
-        searchType: "instant",
-      }),
-    }));
-  },
+  request: ({ prompt, model, signal }) => expectOk(fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    ...(signal ? { signal } : {}),
+    body: JSON.stringify({
+      message: prompt,
+      history: [],
+      exaEnabled: false,
+      model: model.id,
+      searchType: "instant",
+    }),
+  })),
   decode: (response) => sseJson(
     response,
     (event) => typeof event.content === "string" ? event.content : undefined,
@@ -107,9 +105,30 @@ export default defineBridge({
 });
 ```
 
-The implementation is also available at [`examples/exa.ts`](examples/exa.ts).
+The implementation is available at [`examples/exa.ts`](examples/exa.ts).
 
-Exa's endpoint keeps no server-side session. `contextToBridgePromptWithHistory` puts only Pi's newest event in `message` and converts all earlier user, assistant, and tool-result events into Exa's client-supplied `history`. The current message still carries the live tool schemas and output protocol on every call.
+An optional second adapter uses Exa's client-supplied `history` array:
+
+```ts
+import { contextToBridgePromptWithHistory } from "pi-llm-bridge";
+
+request: ({ context, model, signal }) => {
+  const conversation = contextToBridgePromptWithHistory(context);
+  return expectOk(fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    ...(signal ? { signal } : {}),
+    body: JSON.stringify({
+      ...conversation,
+      exaEnabled: false,
+      model: model.id,
+      searchType: "instant",
+    }),
+  }));
+},
+```
+
+That version is available separately at [`examples/exa-history.ts`](examples/exa-history.ts). It puts only Pi's newest event in `message` and converts earlier user, assistant, and tool-result events into `history`. Both adapters still include the live tool schemas and output protocol in every current request.
 
 ## Adapter API
 
@@ -255,6 +274,14 @@ Load the Exa example:
 ```bash
 pi -e /absolute/path/to/pi-llm-bridge/examples/exa.ts \
   --provider exa-bridge \
+  --model google/gemini-2.5-flash
+```
+
+Load the optional Exa history example:
+
+```bash
+pi -e /absolute/path/to/pi-llm-bridge/examples/exa-history.ts \
+  --provider exa-history-bridge \
   --model google/gemini-2.5-flash
 ```
 
