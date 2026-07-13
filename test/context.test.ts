@@ -100,5 +100,7 @@ test("teaches the raw write payload envelope only when write is available", () =
   });
   assert.match(writePrompt, /payloadArgument: exact_live_parameter_name_for_file_content/);
   assert.match(writePrompt, /raw file content starts here with no YAML indentation/);
+  assert.match(writePrompt, /Never put a tool fence inside a text fence/);
+  assert.match(writePrompt, /longer outer fence is exclusive to a write payload/);
   assert.doesNotMatch(bashPrompt, /payloadArgument/);
 });

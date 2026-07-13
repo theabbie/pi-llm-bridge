@@ -63,7 +63,7 @@ arguments:
 ```
 ````
 
-Text and tool blocks may repeat and interleave. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Normally, each tool block contains one YAML mapping with `tool` and `arguments`; Needle extracts and normalizes it against Pi's current schema. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
+Text and tool blocks may repeat and interleave as separate top-level siblings. A tool fence must never be nested inside a text fence. This lets one upstream response speak to the user and request tools afterward, or request several independent tools at once. Normally, each tool block contains one YAML mapping with `tool` and `arguments`; Needle extracts and normalizes it against Pi's current schema. When one action depends on another action's result, the model emits only the first tool block and continues after Pi returns the result.
 
 ### Exact write payloads
 

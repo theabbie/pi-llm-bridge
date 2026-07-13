@@ -54,7 +54,8 @@ export function contextToBridgePrompt(
     "arguments:",
     "  exact_parameter_name: exact value",
     "```",
-    "Text and tool fences may be multiline, may repeat, and may be interleaved.",
+    "Text and tool fences may be multiline, may repeat, and may be interleaved only as separate top-level sibling fences.",
+    "Never put a tool fence inside a text fence. Never wrap the whole reply in a longer text fence. To speak and then act, close the text fence completely before opening the top-level tool fence.",
     "Use a separate tool block for each independent action. For dependent actions, request one tool and wait for its result before choosing the next.",
     "Normally, inside each tool fence, output one YAML tool call matching the live schema below. Include every required argument and any useful optional arguments. Do not put explanations or nested Markdown fences inside it.",
     "For bash, the command argument must contain only the complete executable command. Put all explanation in a text block.",
@@ -73,7 +74,7 @@ export function contextToBridgePrompt(
       "---",
       "raw file content starts here with no YAML indentation",
       "````",
-      "The first line containing only --- separates the YAML header from the exact raw payload. payloadArgument must name the corresponding string parameter in the live write schema. This raw-payload form is exclusive to write; use normal YAML arguments for every other tool.",
+      "The first line containing only --- separates the YAML header from the exact raw payload. payloadArgument must name the corresponding string parameter in the live write schema. The longer outer fence is exclusive to a write payload; never use it to wrap text and another tool fence. Use normal top-level YAML tool fences for every other tool.",
     ].join("\n"));
   }
   if (options.includeSystemPrompt !== false && context.systemPrompt?.trim()) {
